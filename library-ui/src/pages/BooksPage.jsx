@@ -79,6 +79,18 @@ const BooksPage = ({ showToast }) => {
     fetchCategories();
   }, []);
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setSelectedCategoryFilter('');
+    setShowOnlyAvailable(false);
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategoryFilter('');
+    setShowOnlyAvailable(false);
+  };
+
   const handleOpenCreateModal = () => {
     setIsEdit(false);
     setSelectedId(null);
