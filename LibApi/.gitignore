@@ -40,8 +40,7 @@ build/
 application-local.properties
 application-dev.properties
 
-### OS ###
+# OS
 .DS_Store
 Thumbs.db
 
-src/main/resources/application.properties
