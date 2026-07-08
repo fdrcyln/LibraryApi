@@ -8,6 +8,8 @@ const MembersPage = ({ showToast }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -68,19 +70,24 @@ const MembersPage = ({ showToast }) => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Bu üyeyi silmek istediğinizden emin misiniz (soft-delete)?')) {
+      setDeletingId(id);
       try {
         const res = await memberService.delete(id);
         showToast(res.message || 'Üye başarıyla pasif hale getirildi.', 'success');
         fetchMembers();
       } catch (err) {
         showToast(err.message || 'Üye silinirken bir hata oluştu.', 'error');
+      } finally {
+        setDeletingId(null);
       }
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setFieldErrors({});
+    setIsSubmitting(true);
     try {
       if (isEdit) {
         const res = await memberService.update(selectedId, {
@@ -110,6 +117,8 @@ const MembersPage = ({ showToast }) => {
       } else {
         showToast(err.message || 'Üye kaydedilirken hata oluştu.', 'error');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -170,11 +179,15 @@ const MembersPage = ({ showToast }) => {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEditModal(member)}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEditModal(member)} disabled={isSubmitting || deletingId !== null}>
                             <Edit2 size={12} /> Düzenle
                           </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(member.id)}>
-                            <Trash2 size={12} /> Sil
+                          <button 
+                            className="btn btn-danger btn-sm" 
+                            onClick={() => handleDelete(member.id)}
+                            disabled={deletingId === member.id || isSubmitting}
+                          >
+                            <Trash2 size={12} /> {deletingId === member.id ? 'Siliniyor...' : 'Sil'}
                           </button>
                         </div>
                       </td>
@@ -266,8 +279,10 @@ const MembersPage = ({ showToast }) => {
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Vazgeç</button>
-                <button type="submit" className="btn btn-primary">{isEdit ? 'Güncelle' : 'Kaydet'}</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)} disabled={isSubmitting}>Vazgeç</button>
+                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                  {isSubmitting ? 'Kaydediliyor...' : (isEdit ? 'Güncelle' : 'Kaydet')}
+                </button>
               </div>
             </form>
           </div>

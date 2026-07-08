@@ -14,6 +14,7 @@ import com.fdrcyln.repository.ICategoryRepository;
 import com.fdrcyln.repository.IRentalRepository;
 import com.fdrcyln.service.IBookService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -38,8 +39,21 @@ public class BookServiceImpl implements IBookService {
     }
 
     @Override
+    @Transactional
     public BookResponse save(CreateBookRequest request) {
+        String trimmedIsbn = request.getIsbn() != null ? request.getIsbn().trim() : "";
+        if (bookRepository.existsByIsbn(trimmedIsbn)) {
+            throw new BadRequestException("Bu ISBN numarasına sahip kitap zaten mevcut.");
+        }
+
         Book book = bookMapper.toEntity(request);
+        book.setIsbn(trimmedIsbn);
+        if (book.getTitle() != null) {
+            book.setTitle(book.getTitle().trim());
+        }
+        if (book.getAuthor() != null) {
+            book.setAuthor(book.getAuthor().trim());
+        }
 
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + request.getCategoryId()));
@@ -68,6 +82,7 @@ public class BookServiceImpl implements IBookService {
     }
 
     @Override
+    @Transactional
     public BookResponse update(Long id, UpdateBookRequest request) {
         Book existingBook = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Kitap bulunamadı. ID: " + id));
@@ -75,14 +90,19 @@ public class BookServiceImpl implements IBookService {
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + request.getCategoryId()));
 
+        String trimmedIsbn = request.getIsbn() != null ? request.getIsbn().trim() : "";
+        if (bookRepository.existsByIsbnAndIdNot(trimmedIsbn, id)) {
+            throw new BadRequestException("Bu ISBN numarasına sahip kitap zaten mevcut.");
+        }
+
         int borrowedStock = existingBook.getTotalStock() - existingBook.getAvailableStock();
         if (request.getTotalStock() < borrowedStock) {
             throw new BadRequestException("Toplam stok, aktif kiralanmış kitap sayısından küçük olamaz.");
         }
 
-        existingBook.setTitle(request.getTitle());
-        existingBook.setAuthor(request.getAuthor());
-        existingBook.setIsbn(request.getIsbn());
+        existingBook.setTitle(request.getTitle() != null ? request.getTitle().trim() : "");
+        existingBook.setAuthor(request.getAuthor() != null ? request.getAuthor().trim() : "");
+        existingBook.setIsbn(trimmedIsbn);
         existingBook.setTotalStock(request.getTotalStock());
         existingBook.setAvailableStock(request.getTotalStock() - borrowedStock);
         existingBook.setPageCount(request.getPageCount());
@@ -95,6 +115,7 @@ public class BookServiceImpl implements IBookService {
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Kitap bulunamadı. ID: " + id));

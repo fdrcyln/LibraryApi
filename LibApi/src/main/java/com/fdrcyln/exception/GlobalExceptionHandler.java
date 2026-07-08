@@ -37,6 +37,24 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(org.springframework.dao.DataIntegrityViolationException ex) {
+        String message = "Bu kayıt zaten mevcut veya benzersiz alan ihlali var.";
+        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : "";
+        if (rootMsg != null) {
+            String lower = rootMsg.toLowerCase();
+            if (lower.contains("categories") || lower.contains("key (name)")) {
+                message = "Bu kategori zaten mevcut.";
+            } else if (lower.contains("books") || lower.contains("isbn")) {
+                message = "Bu ISBN numarasına sahip kitap zaten mevcut.";
+            } else if (lower.contains("members") || lower.contains("email")) {
+                message = "Bu e-posta adresiyle kayıtlı bir üye zaten mevcut.";
+            }
+        }
+        ErrorResponse errorResponse = new ErrorResponse(message, HttpStatus.BAD_REQUEST.value());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
         ErrorResponse errorResponse = new ErrorResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR.value());

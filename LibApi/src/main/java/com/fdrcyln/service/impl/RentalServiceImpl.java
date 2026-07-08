@@ -14,6 +14,7 @@ import com.fdrcyln.repository.IMemberRepository;
 import com.fdrcyln.repository.IRentalRepository;
 import com.fdrcyln.service.IRentalService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -39,6 +40,7 @@ public class RentalServiceImpl implements IRentalService {
     }
 
     @Override
+    @Transactional
     public RentalResponse rentBook(CreateRentalRequest request) {
         if (request.getRentalDay() == null || request.getRentalDay() < 1) {
             throw new BadRequestException("Kiralama süresi en az 1 gün olmalıdır.");
@@ -92,6 +94,7 @@ public class RentalServiceImpl implements IRentalService {
     }
 
     @Override
+    @Transactional
     public RentalResponse returnBook(Long rentalId) {
         Rental rental = rentalRepository.findById(rentalId)
                 .orElseThrow(() -> new ResourceNotFoundException("Kiralama kaydı bulunamadı. ID: " + rentalId));
@@ -101,6 +104,9 @@ public class RentalServiceImpl implements IRentalService {
         }
 
         Book book = rental.getBook();
+        if (book.getAvailableStock() >= book.getTotalStock()) {
+            throw new BadRequestException("Kitap iade edilemez, mevcut stok toplam stok miktarını aşamaz.");
+        }
 
         rental.setReturnDate(LocalDate.now());
         rental.setStatus(RentalStatus.RETURNED);

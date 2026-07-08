@@ -12,6 +12,7 @@ import com.fdrcyln.repository.IMemberRepository;
 import com.fdrcyln.repository.IRentalRepository;
 import com.fdrcyln.service.IMemberService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -29,11 +30,20 @@ public class MemberServiceImpl implements IMemberService {
     }
 
     @Override
+    @Transactional
     public MemberResponse save(CreateMemberRequest request) {
-        if (memberRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("Bu e-posta adresi zaten kullanımda.");
+        String trimmedEmail = request.getEmail() != null ? request.getEmail().trim() : "";
+        if (memberRepository.existsByEmailIgnoreCase(trimmedEmail)) {
+            throw new BadRequestException("Bu e-posta adresiyle kayıtlı bir üye zaten mevcut.");
         }
         Member member = memberMapper.toEntity(request);
+        member.setEmail(trimmedEmail);
+        if (member.getFirstName() != null) {
+            member.setFirstName(member.getFirstName().trim());
+        }
+        if (member.getLastName() != null) {
+            member.setLastName(member.getLastName().trim());
+        }
         Member savedMember = memberRepository.save(member);
         return memberMapper.toResponse(savedMember);
     }
@@ -55,19 +65,21 @@ public class MemberServiceImpl implements IMemberService {
     }
 
     @Override
+    @Transactional
     public MemberResponse update(Long id, UpdateMemberRequest request) {
         Member member = memberRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Üye bulunamadı. ID: " + id));
 
-        if (!member.getEmail().equalsIgnoreCase(request.getEmail()) && memberRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("Bu e-posta adresi zaten kullanımda.");
+        String trimmedEmail = request.getEmail() != null ? request.getEmail().trim() : "";
+        if (memberRepository.existsByEmailIgnoreCaseAndIdNot(trimmedEmail, id)) {
+            throw new BadRequestException("Bu e-posta adresiyle kayıtlı bir üye zaten mevcut.");
         }
 
-        member.setFirstName(request.getFirstName());
-        member.setLastName(request.getLastName());
-        member.setEmail(request.getEmail());
-        member.setPhone(request.getPhone());
-        member.setAddress(request.getAddress());
+        member.setFirstName(request.getFirstName() != null ? request.getFirstName().trim() : "");
+        member.setLastName(request.getLastName() != null ? request.getLastName().trim() : "");
+        member.setEmail(trimmedEmail);
+        member.setPhone(request.getPhone() != null ? request.getPhone().trim() : "");
+        member.setAddress(request.getAddress() != null ? request.getAddress().trim() : "");
         member.setActive(request.getActive());
 
         Member updatedMember = memberRepository.save(member);
@@ -76,6 +88,7 @@ public class MemberServiceImpl implements IMemberService {
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
         Member member = memberRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Üye bulunamadı. ID: " + id));

@@ -23,6 +23,8 @@ axiosInstance.interceptors.response.use(
       errorData.message = error.response.data.message || errorData.message;
       errorData.errors = error.response.data.errors || null;
       errorData.status = error.response.data.status || error.response.status;
+    } else if (error.request) {
+      errorData.message = 'Sunucuya ulaşılamıyor. Lütfen internet bağlantınızı veya API sunucusunu kontrol edin.';
     }
 
     return Promise.reject(errorData);

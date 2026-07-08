@@ -30,6 +30,16 @@ const BooksPage = ({ showToast }) => {
   });
   
   const [fieldErrors, setFieldErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const fetchBooks = async () => {
     setLoading(true);
@@ -39,8 +49,8 @@ const BooksPage = ({ showToast }) => {
         res = await bookService.getAvailable();
       } else if (selectedCategoryFilter) {
         res = await bookService.getByCategory(selectedCategoryFilter);
-      } else if (searchQuery.trim()) {
-        res = await bookService.searchByTitle(searchQuery.trim());
+      } else if (debouncedSearchQuery.trim()) {
+        res = await bookService.searchByTitle(debouncedSearchQuery.trim());
       } else {
         res = await bookService.getAll();
       }
@@ -63,34 +73,11 @@ const BooksPage = ({ showToast }) => {
 
   useEffect(() => {
     fetchBooks();
-  }, [selectedCategoryFilter, showOnlyAvailable]);
+  }, [debouncedSearchQuery, selectedCategoryFilter, showOnlyAvailable]);
 
   useEffect(() => {
     fetchCategories();
   }, []);
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    setSelectedCategoryFilter('');
-    setShowOnlyAvailable(false);
-    fetchBooks();
-  };
-
-  const handleClearFilters = () => {
-    setSearchQuery('');
-    setSelectedCategoryFilter('');
-    setShowOnlyAvailable(false);
-    // Note: useEffect or manual fetch:
-    // since selectedCategoryFilter & showOnlyAvailable are dependencies, clearing them triggers fetchBooks.
-    // If search query is also cleared, we can trigger fetchBooks manually or let the render handle it.
-  };
-
-  // Wait, if search query is cleared, trigger search reset
-  useEffect(() => {
-    if (searchQuery === '' && !selectedCategoryFilter && !showOnlyAvailable) {
-      fetchBooks();
-    }
-  }, [searchQuery]);
 
   const handleOpenCreateModal = () => {
     setIsEdit(false);
@@ -128,19 +115,24 @@ const BooksPage = ({ showToast }) => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Bu kitabı silmek istediğinizden emin misiniz (soft-delete)?')) {
+      setDeletingId(id);
       try {
         const res = await bookService.delete(id);
         showToast(res.message || 'Kitap başarıyla pasif hale getirildi.', 'success');
         fetchBooks();
       } catch (err) {
         showToast(err.message || 'Kitap silinirken bir hata oluştu.', 'error');
+      } finally {
+        setDeletingId(null);
       }
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setFieldErrors({});
+    setIsSubmitting(true);
     
     const requestData = {
       title: formData.title,
@@ -168,6 +160,8 @@ const BooksPage = ({ showToast }) => {
       } else {
         showToast(err.message || 'Kitap kaydedilirken hata oluştu.', 'error');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -289,8 +283,12 @@ const BooksPage = ({ showToast }) => {
                           <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEditModal(book)}>
                             <Edit2 size={12} /> Düzenle
                           </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(book.id)}>
-                            <Trash2 size={12} /> Sil
+                          <button 
+                            className="btn btn-danger btn-sm" 
+                            onClick={() => handleDelete(book.id)}
+                            disabled={deletingId === book.id || isSubmitting}
+                          >
+                            <Trash2 size={12} /> {deletingId === book.id ? 'Siliniyor...' : 'Sil'}
                           </button>
                         </div>
                       </td>
@@ -410,8 +408,10 @@ const BooksPage = ({ showToast }) => {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Vazgeç</button>
-                <button type="submit" className="btn btn-primary">{isEdit ? 'Güncelle' : 'Kaydet'}</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)} disabled={isSubmitting}>Vazgeç</button>
+                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                  {isSubmitting ? 'Kaydediliyor...' : (isEdit ? 'Güncelle' : 'Kaydet')}
+                </button>
               </div>
             </form>
           </div>

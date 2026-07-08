@@ -11,6 +11,7 @@ import com.fdrcyln.repository.BookRepository;
 import com.fdrcyln.repository.ICategoryRepository;
 import com.fdrcyln.service.ICategoryService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -28,11 +29,17 @@ public class CategoryServiceImpl implements ICategoryService {
     }
 
     @Override
+    @Transactional
     public CategoryResponse save(CreateCategoryRequest request) {
-        if (categoryRepository.existsByNameIgnoreCase(request.getName())) {
-            throw new BadRequestException("Bu isimde bir kategori zaten mevcut.");
+        String trimmedName = request.getName() != null ? request.getName().trim() : "";
+        if (categoryRepository.existsByNameIgnoreCase(trimmedName)) {
+            throw new BadRequestException("Bu kategori zaten mevcut.");
         }
         Category category = categoryMapper.toEntity(request);
+        category.setName(trimmedName);
+        if (category.getDescription() != null) {
+            category.setDescription(category.getDescription().trim());
+        }
         Category savedCategory = categoryRepository.save(category);
         return categoryMapper.toResponse(savedCategory);
     }
@@ -54,16 +61,18 @@ public class CategoryServiceImpl implements ICategoryService {
     }
 
     @Override
+    @Transactional
     public CategoryResponse update(Long id, UpdateCategoryRequest request) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + id));
 
-        if (!category.getName().equalsIgnoreCase(request.getName()) && categoryRepository.existsByNameIgnoreCase(request.getName())) {
-            throw new BadRequestException("Bu isimde bir kategori zaten mevcut.");
+        String trimmedName = request.getName() != null ? request.getName().trim() : "";
+        if (categoryRepository.existsByNameIgnoreCaseAndIdNot(trimmedName, id)) {
+            throw new BadRequestException("Bu kategori zaten mevcut.");
         }
 
-        category.setName(request.getName());
-        category.setDescription(request.getDescription());
+        category.setName(trimmedName);
+        category.setDescription(request.getDescription() != null ? request.getDescription().trim() : "");
         category.setActive(request.getActive());
 
         Category updatedCategory = categoryRepository.save(category);
@@ -72,6 +81,7 @@ public class CategoryServiceImpl implements ICategoryService {
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + id));

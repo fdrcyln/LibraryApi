@@ -9,6 +9,7 @@ const CategoriesPage = ({ showToast }) => {
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -60,18 +61,22 @@ const CategoriesPage = ({ showToast }) => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Bu kategoriyi silmek istediğinizden emin misiniz (soft-delete)?')) {
+      setDeletingId(id);
       try {
         const res = await categoryService.delete(id);
         showToast(res.message || 'Kategori başarıyla pasif hale getirildi.', 'success');
         fetchCategories();
       } catch (err) {
         showToast(err.message || 'Kategori silinirken bir hata oluştu.', 'error');
+      } finally {
+        setDeletingId(null);
       }
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     setFieldErrors({});
     setSubmitting(true);
     try {
@@ -151,11 +156,15 @@ const CategoriesPage = ({ showToast }) => {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEditModal(category)}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEditModal(category)} disabled={submitting || deletingId !== null}>
                             <Edit2 size={12} /> Düzenle
                           </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(category.id)}>
-                            <Trash2 size={12} /> Sil
+                          <button 
+                            className="btn btn-danger btn-sm" 
+                            onClick={() => handleDelete(category.id)}
+                            disabled={deletingId === category.id || submitting}
+                          >
+                            <Trash2 size={12} /> {deletingId === category.id ? 'Siliniyor...' : 'Sil'}
                           </button>
                         </div>
                       </td>

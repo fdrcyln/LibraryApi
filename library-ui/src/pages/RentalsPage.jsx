@@ -27,6 +27,8 @@ const RentalsPage = ({ showToast }) => {
   });
   
   const [fieldErrors, setFieldErrors] = useState({});
+  const [rentingLoading, setRentingLoading] = useState(false);
+  const [returningId, setReturningId] = useState(null);
 
   const fetchRentals = async () => {
     setLoading(true);
@@ -102,6 +104,7 @@ const RentalsPage = ({ showToast }) => {
 
   const handleReturn = async (id) => {
     if (window.confirm('Bu kitabı teslim almak istediğinizden emin misiniz?')) {
+      setReturningId(id);
       try {
         const res = await rentalService.returnBook(id);
         showToast(res.message || 'Kitap başarıyla teslim alındı.', 'success');
@@ -113,13 +116,17 @@ const RentalsPage = ({ showToast }) => {
         }
       } catch (err) {
         showToast(err.message || 'Teslim işlemi başarısız.', 'error');
+      } finally {
+        setReturningId(null);
       }
     }
   };
 
   const handleRentSubmit = async (e) => {
     e.preventDefault();
+    if (rentingLoading) return;
     setFieldErrors({});
+    setRentingLoading(true);
 
     try {
       const res = await rentalService.rentBook({
@@ -136,6 +143,8 @@ const RentalsPage = ({ showToast }) => {
       } else {
         showToast(err.message || 'Kiralama işlemi başarısız.', 'error');
       }
+    } finally {
+      setRentingLoading(false);
     }
   };
 
@@ -182,8 +191,12 @@ const RentalsPage = ({ showToast }) => {
                     </td>
                     <td>
                       {rental.status !== 'RETURNED' && (
-                        <button className="btn btn-success btn-sm" onClick={() => handleReturn(rental.id)}>
-                          <CheckCircle size={12} /> İade Al
+                        <button 
+                          className="btn btn-success btn-sm" 
+                          onClick={() => handleReturn(rental.id)}
+                          disabled={returningId === rental.id || rentingLoading}
+                        >
+                          <CheckCircle size={12} /> {returningId === rental.id ? 'İade alınıyor...' : 'İade Al'}
                         </button>
                       )}
                       {rental.status === 'RETURNED' && '-'}
@@ -361,13 +374,13 @@ const RentalsPage = ({ showToast }) => {
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Vazgeç</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)} disabled={rentingLoading}>Vazgeç</button>
                 <button 
                   type="submit" 
                   className="btn btn-primary" 
-                  disabled={availableBooks.length === 0 || members.length === 0}
+                  disabled={availableBooks.length === 0 || members.length === 0 || rentingLoading}
                 >
-                  Kirala
+                  {rentingLoading ? 'Kiralanıyor...' : 'Kirala'}
                 </button>
               </div>
             </form>
