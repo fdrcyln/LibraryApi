@@ -32,14 +32,26 @@ public class CategoryServiceImpl implements ICategoryService {
     @Transactional
     public CategoryResponse save(CreateCategoryRequest request) {
         String trimmedName = request.getName() != null ? request.getName().trim() : "";
-        if (categoryRepository.existsByNameIgnoreCase(trimmedName)) {
-            throw new BadRequestException("Bu kategori zaten mevcut.");
+        java.util.Optional<Category> existingOpt = categoryRepository.findByNameIgnoreCase(trimmedName);
+        if (existingOpt.isPresent()) {
+            Category existingCategory = existingOpt.get();
+            if (existingCategory.getActive()) {
+                throw new BadRequestException("Bu kategori zaten mevcut.");
+            } else {
+                existingCategory.setActive(true);
+                existingCategory.setName(trimmedName);
+                existingCategory.setDescription(request.getDescription() != null ? request.getDescription().trim() : "");
+                Category savedCategory = categoryRepository.save(existingCategory);
+                return categoryMapper.toResponse(savedCategory);
+            }
         }
+
         Category category = categoryMapper.toEntity(request);
         category.setName(trimmedName);
         if (category.getDescription() != null) {
             category.setDescription(category.getDescription().trim());
         }
+        category.setActive(true);
         Category savedCategory = categoryRepository.save(category);
         return categoryMapper.toResponse(savedCategory);
     }
@@ -67,7 +79,7 @@ public class CategoryServiceImpl implements ICategoryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + id));
 
         String trimmedName = request.getName() != null ? request.getName().trim() : "";
-        if (categoryRepository.existsByNameIgnoreCaseAndIdNot(trimmedName, id)) {
+        if (categoryRepository.existsByNameIgnoreCaseAndIdNotAndActiveTrue(trimmedName, id)) {
             throw new BadRequestException("Bu kategori zaten mevcut.");
         }
 

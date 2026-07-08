@@ -41,9 +41,29 @@ public class BookServiceImpl implements IBookService {
     @Override
     @Transactional
     public BookResponse save(CreateBookRequest request) {
-        String trimmedIsbn = request.getIsbn() != null ? request.getIsbn().trim() : "";
-        if (bookRepository.existsByIsbn(trimmedIsbn)) {
-            throw new BadRequestException("Bu ISBN numarasına sahip kitap zaten mevcut.");
+        String trimmedIsbn = request.getIsbn() != null ? request.getIsbn().trim().replaceAll("\\s+", "") : "";
+        
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + request.getCategoryId()));
+
+        java.util.Optional<Book> existingOpt = bookRepository.findByIsbnIgnoreCase(trimmedIsbn);
+        if (existingOpt.isPresent()) {
+            Book existingBook = existingOpt.get();
+            if (existingBook.getActive()) {
+                throw new BadRequestException("Bu ISBN numarasına sahip aktif bir kitap zaten mevcut.");
+            } else {
+                existingBook.setActive(true);
+                existingBook.setTitle(request.getTitle() != null ? request.getTitle().trim() : "");
+                existingBook.setAuthor(request.getAuthor() != null ? request.getAuthor().trim() : "");
+                existingBook.setIsbn(trimmedIsbn);
+                existingBook.setTotalStock(request.getTotalStock());
+                existingBook.setAvailableStock(request.getTotalStock());
+                existingBook.setPageCount(request.getPageCount());
+                existingBook.setPublicationYear(request.getPublicationYear());
+                existingBook.setCategory(category);
+                Book savedBook = bookRepository.save(existingBook);
+                return bookMapper.toResponse(savedBook);
+            }
         }
 
         Book book = bookMapper.toEntity(request);
@@ -54,11 +74,8 @@ public class BookServiceImpl implements IBookService {
         if (book.getAuthor() != null) {
             book.setAuthor(book.getAuthor().trim());
         }
-
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + request.getCategoryId()));
-
         book.setCategory(category);
+        book.setActive(true);
 
         Book savedBook = bookRepository.save(book);
 
@@ -90,9 +107,9 @@ public class BookServiceImpl implements IBookService {
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + request.getCategoryId()));
 
-        String trimmedIsbn = request.getIsbn() != null ? request.getIsbn().trim() : "";
-        if (bookRepository.existsByIsbnAndIdNot(trimmedIsbn, id)) {
-            throw new BadRequestException("Bu ISBN numarasına sahip kitap zaten mevcut.");
+        String trimmedIsbn = request.getIsbn() != null ? request.getIsbn().trim().replaceAll("\\s+", "") : "";
+        if (bookRepository.existsByIsbnIgnoreCaseAndIdNotAndActiveTrue(trimmedIsbn, id)) {
+            throw new BadRequestException("Bu ISBN numarasına sahip aktif bir kitap zaten mevcut.");
         }
 
         int borrowedStock = existingBook.getTotalStock() - existingBook.getAvailableStock();

@@ -8,4 +8,7 @@ public interface IMemberRepository extends JpaRepository<Member, Long> {
     List<Member> findByActiveTrue();
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
+    java.util.Optional<Member> findByEmailIgnoreCase(String email);
+    boolean existsByEmailIgnoreCaseAndActiveTrue(String email);
+    boolean existsByEmailIgnoreCaseAndIdNotAndActiveTrue(String email, Long id);
 }

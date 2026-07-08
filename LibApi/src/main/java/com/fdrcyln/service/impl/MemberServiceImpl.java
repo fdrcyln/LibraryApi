@@ -33,9 +33,26 @@ public class MemberServiceImpl implements IMemberService {
     @Transactional
     public MemberResponse save(CreateMemberRequest request) {
         String trimmedEmail = request.getEmail() != null ? request.getEmail().trim() : "";
-        if (memberRepository.existsByEmailIgnoreCase(trimmedEmail)) {
-            throw new BadRequestException("Bu e-posta adresiyle kayıtlı bir üye zaten mevcut.");
+        java.util.Optional<Member> existingOpt = memberRepository.findByEmailIgnoreCase(trimmedEmail);
+        if (existingOpt.isPresent()) {
+            Member existingMember = existingOpt.get();
+            if (existingMember.getActive()) {
+                throw new BadRequestException("Bu e-posta adresiyle kayıtlı aktif bir üye zaten mevcut.");
+            } else {
+                existingMember.setActive(true);
+                existingMember.setFirstName(request.getFirstName() != null ? request.getFirstName().trim() : "");
+                existingMember.setLastName(request.getLastName() != null ? request.getLastName().trim() : "");
+                existingMember.setEmail(trimmedEmail);
+                existingMember.setPhone(request.getPhone() != null ? request.getPhone().trim() : "");
+                existingMember.setAddress(request.getAddress() != null ? request.getAddress().trim() : "");
+                if (existingMember.getMembershipDate() == null) {
+                    existingMember.setMembershipDate(java.time.LocalDate.now());
+                }
+                Member savedMember = memberRepository.save(existingMember);
+                return memberMapper.toResponse(savedMember);
+            }
         }
+
         Member member = memberMapper.toEntity(request);
         member.setEmail(trimmedEmail);
         if (member.getFirstName() != null) {
@@ -44,6 +61,10 @@ public class MemberServiceImpl implements IMemberService {
         if (member.getLastName() != null) {
             member.setLastName(member.getLastName().trim());
         }
+        if (member.getMembershipDate() == null) {
+            member.setMembershipDate(java.time.LocalDate.now());
+        }
+        member.setActive(true);
         Member savedMember = memberRepository.save(member);
         return memberMapper.toResponse(savedMember);
     }
@@ -71,8 +92,8 @@ public class MemberServiceImpl implements IMemberService {
                 .orElseThrow(() -> new ResourceNotFoundException("Üye bulunamadı. ID: " + id));
 
         String trimmedEmail = request.getEmail() != null ? request.getEmail().trim() : "";
-        if (memberRepository.existsByEmailIgnoreCaseAndIdNot(trimmedEmail, id)) {
-            throw new BadRequestException("Bu e-posta adresiyle kayıtlı bir üye zaten mevcut.");
+        if (memberRepository.existsByEmailIgnoreCaseAndIdNotAndActiveTrue(trimmedEmail, id)) {
+            throw new BadRequestException("Bu e-posta adresiyle kayıtlı aktif bir üye zaten mevcut.");
         }
 
         member.setFirstName(request.getFirstName() != null ? request.getFirstName().trim() : "");

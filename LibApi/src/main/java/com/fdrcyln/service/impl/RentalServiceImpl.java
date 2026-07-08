@@ -67,13 +67,13 @@ public class RentalServiceImpl implements IRentalService {
         // Aynı üye aynı kitabı ACTIVE durumdayken tekrar kiralayamasın
         boolean alreadyRented = rentalRepository.existsByBookIdAndMemberIdAndStatus(request.getBookId(), request.getMemberId(), RentalStatus.ACTIVE);
         if (alreadyRented) {
-            throw new BadRequestException("Aynı üye aynı kitabı aktif durumdayken tekrar kiralayamaz.");
+            throw new BadRequestException("Bu üye bu kitabı zaten aktif olarak kiralamış.");
         }
 
         // Bir üye aynı anda en fazla 3 aktif kitap kiralayabilsin
         long activeRentalCount = rentalRepository.countByMemberIdAndStatus(request.getMemberId(), RentalStatus.ACTIVE);
         if (activeRentalCount >= 3) {
-            throw new BadRequestException("Bir üye aynı anda en fazla 3 aktif kitap kiralayabilir.");
+            throw new BadRequestException("Bir üye aynı anda en fazla 3 kitap kiralayabilir.");
         }
 
         Rental rental = new Rental();
@@ -100,12 +100,12 @@ public class RentalServiceImpl implements IRentalService {
                 .orElseThrow(() -> new ResourceNotFoundException("Kiralama kaydı bulunamadı. ID: " + rentalId));
 
         if (rental.getStatus() == RentalStatus.RETURNED) {
-            throw new BadRequestException("Daha önce teslim edilmiş kitap tekrar teslim edilemez.");
+            throw new BadRequestException("Bu kitap zaten teslim edilmiş.");
         }
 
         Book book = rental.getBook();
         if (book.getAvailableStock() >= book.getTotalStock()) {
-            throw new BadRequestException("Kitap iade edilemez, mevcut stok toplam stok miktarını aşamaz.");
+            throw new BadRequestException("Kitap stoğu toplam stok değerini aşamaz.");
         }
 
         rental.setReturnDate(LocalDate.now());
