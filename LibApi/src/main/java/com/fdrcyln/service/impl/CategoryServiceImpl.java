@@ -32,12 +32,13 @@ public class CategoryServiceImpl implements ICategoryService {
     @Transactional
     public CategoryResponse save(CreateCategoryRequest request) {
         String trimmedName = request.getName() != null ? request.getName().trim() : "";
-        java.util.Optional<Category> existingOpt = categoryRepository.findByNameIgnoreCase(trimmedName);
-        if (existingOpt.isPresent()) {
-            Category existingCategory = existingOpt.get();
-            if (existingCategory.getActive()) {
+        java.util.List<Category> existingList = categoryRepository.findByNameIgnoreCase(trimmedName);
+        if (!existingList.isEmpty()) {
+            boolean anyActive = existingList.stream().anyMatch(Category::getActive);
+            if (anyActive) {
                 throw new BadRequestException("Bu kategori zaten mevcut.");
             } else {
+                Category existingCategory = existingList.get(0);
                 existingCategory.setActive(true);
                 existingCategory.setName(trimmedName);
                 existingCategory.setDescription(request.getDescription() != null ? request.getDescription().trim() : "");

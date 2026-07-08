@@ -46,12 +46,13 @@ public class BookServiceImpl implements IBookService {
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + request.getCategoryId()));
 
-        java.util.Optional<Book> existingOpt = bookRepository.findByIsbnIgnoreCase(trimmedIsbn);
-        if (existingOpt.isPresent()) {
-            Book existingBook = existingOpt.get();
-            if (existingBook.getActive()) {
+        java.util.List<Book> existingList = bookRepository.findByIsbnIgnoreCase(trimmedIsbn);
+        if (!existingList.isEmpty()) {
+            boolean anyActive = existingList.stream().anyMatch(Book::getActive);
+            if (anyActive) {
                 throw new BadRequestException("Bu ISBN numarasına sahip aktif bir kitap zaten mevcut.");
             } else {
+                Book existingBook = existingList.get(0);
                 existingBook.setActive(true);
                 existingBook.setTitle(request.getTitle() != null ? request.getTitle().trim() : "");
                 existingBook.setAuthor(request.getAuthor() != null ? request.getAuthor().trim() : "");

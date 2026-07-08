@@ -33,12 +33,13 @@ public class MemberServiceImpl implements IMemberService {
     @Transactional
     public MemberResponse save(CreateMemberRequest request) {
         String trimmedEmail = request.getEmail() != null ? request.getEmail().trim() : "";
-        java.util.Optional<Member> existingOpt = memberRepository.findByEmailIgnoreCase(trimmedEmail);
-        if (existingOpt.isPresent()) {
-            Member existingMember = existingOpt.get();
-            if (existingMember.getActive()) {
+        java.util.List<Member> existingList = memberRepository.findByEmailIgnoreCase(trimmedEmail);
+        if (!existingList.isEmpty()) {
+            boolean anyActive = existingList.stream().anyMatch(Member::getActive);
+            if (anyActive) {
                 throw new BadRequestException("Bu e-posta adresiyle kayıtlı aktif bir üye zaten mevcut.");
             } else {
+                Member existingMember = existingList.get(0);
                 existingMember.setActive(true);
                 existingMember.setFirstName(request.getFirstName() != null ? request.getFirstName().trim() : "");
                 existingMember.setLastName(request.getLastName() != null ? request.getLastName().trim() : "");

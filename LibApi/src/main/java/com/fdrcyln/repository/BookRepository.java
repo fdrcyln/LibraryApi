@@ -15,7 +15,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     boolean existsByCategoryIdAndActiveTrue(Long categoryId);
     boolean existsByIsbn(String isbn);
     boolean existsByIsbnAndIdNot(String isbn, Long id);
-    java.util.Optional<Book> findByIsbnIgnoreCase(String isbn);
+    java.util.List<Book> findByIsbnIgnoreCase(String isbn);
     boolean existsByIsbnIgnoreCaseAndActiveTrue(String isbn);
     boolean existsByIsbnIgnoreCaseAndIdNotAndActiveTrue(String isbn, Long id);
 }
