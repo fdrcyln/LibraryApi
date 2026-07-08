@@ -21,6 +21,5 @@
 .oxlintrc.json
 
 # Local environment secrets and logs
-**/application.properties
 .env
 *.log
