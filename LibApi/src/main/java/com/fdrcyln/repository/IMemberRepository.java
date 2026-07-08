@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface IMemberRepository extends JpaRepository<Member, Long> {
     List<Member> findByActiveTrue();
+    boolean existsByEmail(String email);
 }

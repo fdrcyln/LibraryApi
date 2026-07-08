@@ -4,8 +4,10 @@ import com.fdrcyln.dto.request.CreateCategoryRequest;
 import com.fdrcyln.dto.request.UpdateCategoryRequest;
 import com.fdrcyln.dto.response.CategoryResponse;
 import com.fdrcyln.entities.Category;
+import com.fdrcyln.exception.BadRequestException;
 import com.fdrcyln.exception.ResourceNotFoundException;
 import com.fdrcyln.mapper.CategoryMapper;
+import com.fdrcyln.repository.BookRepository;
 import com.fdrcyln.repository.ICategoryRepository;
 import com.fdrcyln.service.ICategoryService;
 import org.springframework.stereotype.Service;
@@ -17,10 +19,12 @@ public class CategoryServiceImpl implements ICategoryService {
 
     private final ICategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
+    private final BookRepository bookRepository;
 
-    public CategoryServiceImpl(ICategoryRepository categoryRepository, CategoryMapper categoryMapper) {
+    public CategoryServiceImpl(ICategoryRepository categoryRepository, CategoryMapper categoryMapper, BookRepository bookRepository) {
         this.categoryRepository = categoryRepository;
         this.categoryMapper = categoryMapper;
+        this.bookRepository = bookRepository;
     }
 
     @Override
@@ -64,6 +68,10 @@ public class CategoryServiceImpl implements ICategoryService {
     public void delete(Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + id));
+
+        if (bookRepository.existsByCategoryIdAndActiveTrue(id)) {
+            throw new BadRequestException("Bu kategoriye bağlı aktif kitaplar olduğu için kategori silinemez.");
+        }
 
         category.setActive(false);
         categoryRepository.save(category);

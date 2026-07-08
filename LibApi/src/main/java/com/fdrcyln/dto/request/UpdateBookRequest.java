@@ -23,10 +23,6 @@ public class UpdateBookRequest {
     @Min(value = 1, message = "Toplam stok en az 1 olmalıdır")
     private Integer totalStock;
 
-    @NotNull(message = "Kullanılabilir stok null olamaz")
-    @Min(value = 0, message = "Kullanılabilir stok en az 0 olmalıdır")
-    private Integer availableStock;
-
     @Min(value = 1, message = "Sayfa sayısı en az 1 olmalıdır")
     private Integer pageCount;
 

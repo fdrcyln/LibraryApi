@@ -154,10 +154,7 @@ const BooksPage = ({ showToast }) => {
 
     try {
       if (isEdit) {
-        const res = await bookService.update(selectedId, {
-          ...requestData,
-          availableStock: formData.availableStock ? parseInt(formData.availableStock) : 0
-        });
+        const res = await bookService.update(selectedId, requestData);
         showToast(res.message || 'Kitap başarıyla güncellendi.', 'success');
       } else {
         const res = await bookService.save(requestData);
@@ -401,14 +398,13 @@ const BooksPage = ({ showToast }) => {
 
                   {isEdit && (
                     <div className="form-group">
-                      <label>Kullanılabilir Stok*</label>
+                      <label>Kullanılabilir Stok</label>
                       <input
                         type="number"
-                        className={`form-control ${fieldErrors.availableStock ? 'is-invalid' : ''}`}
+                        className="form-control"
                         value={formData.availableStock}
-                        onChange={(e) => setFormData({ ...formData, availableStock: e.target.value })}
+                        disabled
                       />
-                      {fieldErrors.availableStock && <span className="error-feedback">{fieldErrors.availableStock}</span>}
                     </div>
                   )}
                 </div>

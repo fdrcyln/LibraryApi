@@ -18,4 +18,8 @@ public interface IRentalRepository extends JpaRepository<Rental, Long> {
     boolean existsByBookIdAndMemberIdAndStatus(Long bookId, Long memberId, RentalStatus status);
 
     long countByMemberIdAndStatus(Long memberId, RentalStatus status);
+
+    boolean existsByBookIdAndStatus(Long bookId, RentalStatus status);
+
+    boolean existsByMemberIdAndStatus(Long memberId, RentalStatus status);
 }
