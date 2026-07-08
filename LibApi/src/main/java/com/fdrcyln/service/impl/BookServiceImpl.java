@@ -1,0 +1,118 @@
+package com.fdrcyln.service.impl;
+
+import com.fdrcyln.dto.request.CreateBookRequest;
+import com.fdrcyln.dto.request.UpdateBookRequest;
+import com.fdrcyln.dto.response.BookResponse;
+import com.fdrcyln.entities.Book;
+import com.fdrcyln.entities.Category;
+import com.fdrcyln.exception.ResourceNotFoundException;
+import com.fdrcyln.mapper.BookMapper;
+import com.fdrcyln.repository.BookRepository;
+import com.fdrcyln.repository.ICategoryRepository;
+import com.fdrcyln.service.IBookService;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class BookServiceImpl implements IBookService {
+
+    private final BookRepository bookRepository;
+    private final BookMapper bookMapper;
+    private final ICategoryRepository categoryRepository;
+
+    public BookServiceImpl(
+            BookRepository bookRepository,
+            BookMapper bookMapper,
+            ICategoryRepository categoryRepository
+    ) {
+        this.bookRepository = bookRepository;
+        this.bookMapper = bookMapper;
+        this.categoryRepository = categoryRepository;
+    }
+
+    @Override
+    public BookResponse save(CreateBookRequest request) {
+        Book book = bookMapper.toEntity(request);
+
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + request.getCategoryId()));
+
+        book.setCategory(category);
+
+        Book savedBook = bookRepository.save(book);
+
+        return bookMapper.toResponse(savedBook);
+    }
+
+    @Override
+    public List<BookResponse> getAll() {
+        return bookRepository.findByActiveTrue()
+                .stream()
+                .map(bookMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public BookResponse getById(Long id) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Kitap bulunamadı. ID: " + id));
+
+        return bookMapper.toResponse(book);
+    }
+
+    @Override
+    public BookResponse update(Long id, UpdateBookRequest request) {
+        Book existingBook = bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Kitap bulunamadı. ID: " + id));
+
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + request.getCategoryId()));
+
+        existingBook.setTitle(request.getTitle());
+        existingBook.setAuthor(request.getAuthor());
+        existingBook.setIsbn(request.getIsbn());
+        existingBook.setTotalStock(request.getTotalStock());
+        existingBook.setAvailableStock(request.getAvailableStock());
+        existingBook.setPageCount(request.getPageCount());
+        existingBook.setPublicationYear(request.getPublicationYear());
+        existingBook.setCategory(category);
+
+        Book updatedBook = bookRepository.save(existingBook);
+
+        return bookMapper.toResponse(updatedBook);
+    }
+
+    @Override
+    public void delete(Long id) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Kitap bulunamadı. ID: " + id));
+
+        book.setActive(false);
+        bookRepository.save(book);
+    }
+
+    @Override
+    public List<BookResponse> searchByTitle(String title) {
+        return bookRepository.findByTitleContainingIgnoreCaseAndActiveTrue(title)
+                .stream()
+                .map(bookMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public List<BookResponse> getByCategoryId(Long categoryId) {
+        return bookRepository.findByCategoryIdAndActiveTrue(categoryId)
+                .stream()
+                .map(bookMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public List<BookResponse> getAvailableBooks() {
+        return bookRepository.findByAvailableStockGreaterThanAndActiveTrue(0)
+                .stream()
+                .map(bookMapper::toResponse)
+                .toList();
+    }
+}

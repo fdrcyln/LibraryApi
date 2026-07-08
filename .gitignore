@@ -1,0 +1,26 @@
+# Maven build outputs
+**/target/
+**/*.class
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+.factorypath
+.springBeans
+
+# Node/React dependencies and builds
+**/node_modules/
+**/dist/
+.eslintcache
+.oxlintrc.json
+
+# Local environment secrets and logs
+**/application.properties
+.env
+*.log
