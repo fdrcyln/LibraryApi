@@ -29,6 +29,9 @@ public class CategoryServiceImpl implements ICategoryService {
 
     @Override
     public CategoryResponse save(CreateCategoryRequest request) {
+        if (categoryRepository.existsByNameIgnoreCase(request.getName())) {
+            throw new BadRequestException("Bu isimde bir kategori zaten mevcut.");
+        }
         Category category = categoryMapper.toEntity(request);
         Category savedCategory = categoryRepository.save(category);
         return categoryMapper.toResponse(savedCategory);
@@ -54,6 +57,10 @@ public class CategoryServiceImpl implements ICategoryService {
     public CategoryResponse update(Long id, UpdateCategoryRequest request) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Kategori bulunamadı. ID: " + id));
+
+        if (!category.getName().equalsIgnoreCase(request.getName()) && categoryRepository.existsByNameIgnoreCase(request.getName())) {
+            throw new BadRequestException("Bu isimde bir kategori zaten mevcut.");
+        }
 
         category.setName(request.getName());
         category.setDescription(request.getDescription());

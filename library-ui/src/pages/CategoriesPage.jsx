@@ -8,6 +8,7 @@ const CategoriesPage = ({ showToast }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -72,6 +73,7 @@ const CategoriesPage = ({ showToast }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFieldErrors({});
+    setSubmitting(true);
     try {
       if (isEdit) {
         const res = await categoryService.update(selectedId, {
@@ -95,6 +97,8 @@ const CategoriesPage = ({ showToast }) => {
       } else {
         showToast(err.message || 'Kategori kaydedilirken hata oluştu.', 'error');
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -209,8 +213,10 @@ const CategoriesPage = ({ showToast }) => {
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Vazgeç</button>
-                <button type="submit" className="btn btn-primary">{isEdit ? 'Güncelle' : 'Kaydet'}</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)} disabled={submitting}>Vazgeç</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Kaydediliyor...' : (isEdit ? 'Güncelle' : 'Kaydet')}
+                </button>
               </div>
             </form>
           </div>
