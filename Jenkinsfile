@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     stages {
-        stage('Test Jenkins') {
+        stage('Backend Build') {
             steps {
-                sh 'echo "Jenkinsfile GitHub reposundan calisiyor"'
-                sh 'git --version'
-                sh 'docker version'
+                dir('LibApi') {
+                    sh './mvnw clean package -DskipTests'
+                }
             }
         }
     }
