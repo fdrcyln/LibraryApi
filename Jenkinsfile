@@ -2,6 +2,22 @@ pipeline {
     agent any
 
     stages {
+        stage('Start Test Database') {
+            steps {
+            sh '''
+                docker rm -f library-ci-db 2>/dev/null || true
+
+                docker run -d \
+                --name library-ci-db \
+              -e POSTGRES_DB=postgres \
+              -e POSTGRES_USER=postgres \
+              -e POSTGRES_PASSWORD=admin \
+              -p 5433:5432 \
+              postgres:15-alpine
+        '''
+            }
+        }
+
         stage('Backend Build') {
             steps {
                 dir('LibApi') {
