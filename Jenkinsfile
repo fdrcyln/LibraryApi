@@ -62,5 +62,32 @@ pipeline {
                 '''
             }
         }
+
+        stage('Push Docker Images') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        echo "$DOCKER_TOKEN" | docker login \
+                        -u "$DOCKER_USER" \
+                        --password-stdin
+
+                        docker tag library-api:${BUILD_NUMBER} \
+                        $DOCKER_USER/library-api:${BUILD_NUMBER}
+
+                        docker tag library-frontend:${BUILD_NUMBER} \
+                        $DOCKER_USER/library-frontend:${BUILD_NUMBER}
+
+                        docker push $DOCKER_USER/library-api:${BUILD_NUMBER}
+                        docker push $DOCKER_USER/library-frontend:${BUILD_NUMBER}
+                    '''
+                }
+            }
+        }
     }
 }
