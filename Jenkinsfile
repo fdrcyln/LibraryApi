@@ -90,7 +90,7 @@ pipeline {
             }
         }
 
-        stage('Test Deploy SSH') {
+        stage('Deploy') {
             steps {
                 withCredentials([
                     sshUserPrivateKey(
@@ -103,7 +103,9 @@ pipeline {
                         ssh -i "$SSH_KEY" \
                         -p 2222 \
                         "$SSH_USER"@host.docker.internal \
-                        "hostname"
+                        "cd ~/library-deploy && \
+                        IMAGE_TAG=${BUILD_NUMBER} docker compose pull && \
+                        IMAGE_TAG=${BUILD_NUMBER} docker compose up -d"
                     '''
                 }
             }
