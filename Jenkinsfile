@@ -27,18 +27,18 @@ pipeline {
         }
 
         stage('Backend Test and Build') {
-    steps {
-        dir('LibApi') {
-            withEnv([
-                'SPRING_DATASOURCE_URL=jdbc:postgresql://docker:5433/postgres?currentSchema=library',
-                'SPRING_DATASOURCE_USERNAME=postgres',
-                'SPRING_DATASOURCE_PASSWORD=admin'
-            ]) {
-                sh './mvnw clean package'
+            steps {
+                dir('LibApi') {
+                    withEnv([
+                        'SPRING_DATASOURCE_URL=jdbc:postgresql://docker:5433/postgres?currentSchema=library',
+                        'SPRING_DATASOURCE_USERNAME=postgres',
+                        'SPRING_DATASOURCE_PASSWORD=admin'
+                    ]) {
+                        sh './mvnw clean package'
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Frontend Build') {
             steps {
@@ -85,6 +85,25 @@ pipeline {
 
                         docker push $DOCKER_USER/library-api:${BUILD_NUMBER}
                         docker push $DOCKER_USER/library-frontend:${BUILD_NUMBER}
+                    '''
+                }
+            }
+        }
+
+        stage('Test Deploy SSH') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'library-deploy-ssh',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER'
+                    )
+                ]) {
+                    sh '''
+                        ssh -i "$SSH_KEY" \
+                        -p 2222 \
+                        "$SSH_USER"@host.docker.internal \
+                        "hostname"
                     '''
                 }
             }
