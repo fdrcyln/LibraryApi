@@ -53,5 +53,14 @@ pipeline {
                 }
             }
         }
+
+        stage('Build Docker Images') {
+            steps {
+                sh '''
+                    docker build -t library-api:${BUILD_NUMBER} ./LibApi
+                    docker build -t library-frontend:${BUILD_NUMBER} ./library-ui
+                '''
+            }
+        }
     }
 }
