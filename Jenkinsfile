@@ -114,6 +114,28 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy API to Kubernetes') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'library-kubeconfig',
+                        variable: 'KUBECONFIG'
+                    )
+                ]) {
+                    sh '''
+                        kubectl set image \
+                        deployment/library-api \
+                        library-api=furkandurceylan/library-api:${BUILD_NUMBER} \
+                        -n library
+
+                        kubectl rollout status \
+                        deployment/library-api \
+                        -n library
+                    '''
+                }
+            }
+        }
     }
 
     post {
