@@ -15,6 +15,10 @@ pipeline {
               -p 5433:5432 \
               postgres:15-alpine
 
+              until docker logs library-ci-db 2>&1 | grep -q "PostgreSQL init process complete"; do
+                sleep 1
+              done
+
               until docker exec library-ci-db pg_isready -U postgres; do
                 sleep 1
               done
