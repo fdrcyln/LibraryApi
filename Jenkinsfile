@@ -61,9 +61,19 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                    docker build -t library-api:${BUILD_NUMBER} ./LibApi
-                    docker build -t library-frontend:${BUILD_NUMBER} ./library-ui
-                '''
+            docker build \
+              -t library-api:${BUILD_NUMBER} \
+              ./LibApi
+
+            docker build \
+              -t library-frontend:${BUILD_NUMBER} \
+              ./library-ui
+
+            docker build \
+              --build-arg VITE_API_BASE_URL=http://localhost:8082 \
+              -t library-frontend:${BUILD_NUMBER}-k8s \
+              ./library-ui
+        '''
             }
         }
 
@@ -89,6 +99,11 @@ pipeline {
 
                         docker push $DOCKER_USER/library-api:${BUILD_NUMBER}
                         docker push $DOCKER_USER/library-frontend:${BUILD_NUMBER}
+
+                        docker tag library-frontend:${BUILD_NUMBER}-k8s \
+                        $DOCKER_USER/library-frontend:${BUILD_NUMBER}-k8s
+
+                        docker push $DOCKER_USER/library-frontend:${BUILD_NUMBER}-k8s
                     '''
                 }
             }
@@ -132,6 +147,28 @@ pipeline {
                         kubectl rollout status \
                         deployment/library-api \
                         -n library
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Frontend to Kubernetes') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'library-kubeconfig',
+                        variable: 'KUBECONFIG'
+                    )
+                ]) {
+                    sh '''
+                        kubectl set image \
+                            deployment/library-frontend \
+                            library-frontend=furkandurceylan/library-frontend:${BUILD_NUMBER}-k8s \
+                            -n library
+
+                        kubectl rollout status \
+                            deployment/library-frontend \
+                            -n library
                     '''
                 }
             }
