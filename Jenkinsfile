@@ -111,4 +111,22 @@ pipeline {
             }
         }
     }
+
+    post {
+        failure {
+            emailext(
+                to: 'furkandurceylan@gmail.com',
+                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                Jenkins pipeline failed.
+
+                Job: ${env.JOB_NAME}
+                Build: #${env.BUILD_NUMBER}
+
+                Console:
+                ${env.BUILD_URL}console
+            """
+        )
+    }
+    }
 }
