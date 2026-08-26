@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Book, Layers, Users, Bookmark, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import bookService from '../services/bookService';
 import categoryService from '../services/categoryService';
 import memberService from '../services/memberService';
 import rentalService from '../services/rentalService';
 
 const DashboardPage = ({ showToast }) => {
+  const { isAdmin } = useAuth();
   const [stats, setStats] = useState({
     booksCount: 0,
     categoriesCount: 0,
@@ -18,13 +20,24 @@ const DashboardPage = ({ showToast }) => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const [booksRes, categoriesRes, membersRes, activeRes, lateRes] = await Promise.all([
+      const promises = [
         bookService.getAll(),
         categoryService.getAll(),
-        memberService.getAll(),
         rentalService.getActiveRentals(),
         rentalService.getLateRentals(),
-      ]);
+      ];
+
+      if (isAdmin) {
+        promises.push(memberService.getAll());
+      }
+
+      const results = await Promise.allSettled(promises);
+
+      const booksRes = results[0].status === 'fulfilled' ? results[0].value : { data: [] };
+      const categoriesRes = results[1].status === 'fulfilled' ? results[1].value : { data: [] };
+      const activeRes = results[2].status === 'fulfilled' ? results[2].value : { data: [] };
+      const lateRes = results[3].status === 'fulfilled' ? results[3].value : { data: [] };
+      const membersRes = isAdmin && results[4] && results[4].status === 'fulfilled' ? results[4].value : { data: [] };
 
       setStats({
         booksCount: booksRes.data?.length || 0,
@@ -42,7 +55,7 @@ const DashboardPage = ({ showToast }) => {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [isAdmin]);
 
   if (loading) {
     return (
@@ -68,12 +81,12 @@ const DashboardPage = ({ showToast }) => {
       icon: <Layers size={24} style={{ color: 'var(--info)' }} />,
       desc: 'Aktif kitap kategorileri',
     },
-    {
+    ...(isAdmin ? [{
       title: 'Toplam Üye',
       value: stats.membersCount,
       icon: <Users size={24} style={{ color: 'var(--success)' }} />,
       desc: 'Aktif kayıtlı kütüphane üyeleri',
-    },
+    }] : []),
     {
       title: 'Aktif Kiralama',
       value: stats.activeRentalsCount,
@@ -115,8 +128,7 @@ const DashboardPage = ({ showToast }) => {
       <div style={{ marginTop: '2rem', padding: '2rem', background: '#fff', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
         <h2 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Kütüphane Yönetim Sistemine Hoş Geldiniz</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '800px' }}>
-          Soldaki menüyü kullanarak kitap ekleme/silme/güncelleme yapabilir, kategorileri ve üye kayıtlarını yönetebilir, 
-          kitap kiralama ve teslim alma işlemlerini kolaylıkla takip edebilirsiniz.
+          Soldaki menüyü kullanarak kitapları görüntüleyebilir, kiralama işlemlerini takip edebilir ve kütüphane işlemlerinizi kolaylıkla gerçekleştirebilirsiniz.
         </p>
       </div>
     </div>

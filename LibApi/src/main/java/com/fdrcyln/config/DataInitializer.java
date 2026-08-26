@@ -3,34 +3,62 @@ package com.fdrcyln.config;
 import com.fdrcyln.entities.Book;
 import com.fdrcyln.entities.Category;
 import com.fdrcyln.entities.Member;
+import com.fdrcyln.entities.UserAccount;
+import com.fdrcyln.enums.Role;
 import com.fdrcyln.repository.BookRepository;
 import com.fdrcyln.repository.ICategoryRepository;
 import com.fdrcyln.repository.IMemberRepository;
+import com.fdrcyln.repository.UserAccountRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
 
+    @Value("${admin.email:admin@test.com}")
+    private String adminEmail;
+
+    @Value("${admin.password:password}")
+    private String adminPassword;
+
     private final ICategoryRepository categoryRepository;
     private final BookRepository bookRepository;
     private final IMemberRepository memberRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(
             ICategoryRepository categoryRepository,
             BookRepository bookRepository,
-            IMemberRepository memberRepository
+            IMemberRepository memberRepository,
+            UserAccountRepository userAccountRepository,
+            PasswordEncoder passwordEncoder
     ) {
         this.categoryRepository = categoryRepository;
         this.bookRepository = bookRepository;
         this.memberRepository = memberRepository;
+        this.userAccountRepository = userAccountRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public void run(String... args) throws Exception {
+        // 0. Seed Initial Admin Account if not exists
+        if (!userAccountRepository.existsByRole(Role.ADMIN) && !userAccountRepository.existsByEmail(adminEmail)) {
+            UserAccount admin = new UserAccount();
+            admin.setEmail(adminEmail);
+            admin.setPassword(passwordEncoder.encode(adminPassword));
+            admin.setRole(Role.ADMIN);
+            admin.setActive(true);
+            admin.setCreatedDate(LocalDateTime.now());
+            userAccountRepository.save(admin);
+        }
         // 1. Seed Categories
         List<Category> existingCategories = categoryRepository.findAll();
         

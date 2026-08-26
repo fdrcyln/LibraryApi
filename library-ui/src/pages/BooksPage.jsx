@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, Search, RefreshCw, Filter, Check } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import bookService from '../services/bookService';
 import categoryService from '../services/categoryService';
 
 const BooksPage = ({ showToast }) => {
+  const { isAdmin } = useAuth();
+
   const [books, setBooks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -185,9 +188,11 @@ const BooksPage = ({ showToast }) => {
           <button className="btn btn-secondary" onClick={fetchBooks}>
             <RefreshCw size={16} /> Yenile
           </button>
-          <button className="btn btn-primary" onClick={handleOpenCreateModal}>
-            <Plus size={16} /> Kitap Ekle
-          </button>
+          {isAdmin && (
+            <button className="btn btn-primary" onClick={handleOpenCreateModal}>
+              <Plus size={16} /> Kitap Ekle
+            </button>
+          )}
         </div>
       </div>
 
@@ -261,13 +266,13 @@ const BooksPage = ({ showToast }) => {
                   <th>Sayfa Sayısı</th>
                   <th>Yayın Yılı</th>
                   <th>Durum</th>
-                  <th>İşlemler</th>
+                  {isAdmin && <th>İşlemler</th>}
                 </tr>
               </thead>
               <tbody>
                 {books.length === 0 ? (
                   <tr>
-                    <td colSpan="11" style={{ textAlign: 'center', padding: '2rem' }}>Kitap bulunamadı.</td>
+                    <td colSpan={isAdmin ? 11 : 10} style={{ textAlign: 'center', padding: '2rem' }}>Kitap bulunamadı.</td>
                   </tr>
                 ) : (
                   books.map((book) => (
@@ -290,20 +295,22 @@ const BooksPage = ({ showToast }) => {
                           {book.active ? 'Aktif' : 'Pasif'}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEditModal(book)}>
-                            <Edit2 size={12} /> Düzenle
-                          </button>
-                          <button 
-                            className="btn btn-danger btn-sm" 
-                            onClick={() => handleDelete(book.id)}
-                            disabled={deletingId === book.id || isSubmitting}
-                          >
-                            <Trash2 size={12} /> {deletingId === book.id ? 'Siliniyor...' : 'Sil'}
-                          </button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEditModal(book)}>
+                              <Edit2 size={12} /> Düzenle
+                            </button>
+                            <button 
+                              className="btn btn-danger btn-sm" 
+                              onClick={() => handleDelete(book.id)}
+                              disabled={deletingId === book.id || isSubmitting}
+                            >
+                              <Trash2 size={12} /> {deletingId === book.id ? 'Siliniyor...' : 'Sil'}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -313,7 +320,7 @@ const BooksPage = ({ showToast }) => {
         </div>
       )}
 
-      {modalOpen && (
+      {modalOpen && isAdmin && (
         <div className="modal-backdrop">
           <div className="modal-content" style={{ maxWidth: '600px' }}>
             <div className="modal-header">

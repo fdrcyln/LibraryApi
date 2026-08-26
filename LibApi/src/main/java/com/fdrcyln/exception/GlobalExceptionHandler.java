@@ -37,13 +37,27 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentialsException(org.springframework.security.authentication.BadCredentialsException ex) {
+        ErrorResponse errorResponse = new ErrorResponse("E-posta veya şifre hatalı.", HttpStatus.UNAUTHORIZED.value());
+        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(org.springframework.security.access.AccessDeniedException ex) {
+        ErrorResponse errorResponse = new ErrorResponse("Bu işleme erişim yetkiniz bulunmamaktadır.", HttpStatus.FORBIDDEN.value());
+        return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(org.springframework.dao.DataIntegrityViolationException ex) {
         String message = "Bu kayıt zaten mevcut veya benzersiz alan ihlali var.";
         String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : "";
         if (rootMsg != null) {
             String lower = rootMsg.toLowerCase();
-            if (lower.contains("categories") || lower.contains("key (name)")) {
+            if (lower.contains("user_accounts") || lower.contains("user_account")) {
+                message = "Bu e-posta adresiyle kayıtlı bir kullanıcı hesabı zaten mevcut.";
+            } else if (lower.contains("categories") || lower.contains("key (name)")) {
                 message = "Bu kategori zaten mevcut.";
             } else if (lower.contains("books") || lower.contains("isbn")) {
                 message = "Bu ISBN numarasına sahip kitap zaten mevcut.";

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, CheckCircle, Search, RefreshCw, X, Calendar, User, BookOpen } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import rentalService from '../services/rentalService';
 import bookService from '../services/bookService';
 import memberService from '../services/memberService';
 
 const RentalsPage = ({ showToast }) => {
+  const { isAdmin } = useAuth();
+
   const [activeRentals, setActiveRentals] = useState([]);
   const [lateRentals, setLateRentals] = useState([]);
   const [memberRentals, setMemberRentals] = useState([]);
@@ -22,7 +25,7 @@ const RentalsPage = ({ showToast }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     bookId: '',
-    memberId: '',
+    memberId: '1',
     rentalDay: 14,
   });
   
@@ -49,24 +52,30 @@ const RentalsPage = ({ showToast }) => {
 
   const fetchAvailableBooksAndMembers = async () => {
     try {
-      const [booksRes, membersRes] = await Promise.all([
-        bookService.getAvailable(),
-        memberService.getAll()
-      ]);
+      const promises = [bookService.getAvailable()];
+      if (isAdmin) {
+        promises.push(memberService.getAll());
+      }
+      
+      const results = await Promise.allSettled(promises);
+
+      const booksRes = results[0].status === 'fulfilled' ? results[0].value : { data: [] };
+      const membersRes = (isAdmin && results[1] && results[1].status === 'fulfilled') ? results[1].value : { data: [] };
+
       const activeAvailBooks = (booksRes.data || []).filter(b => b.active);
       const activeMembers = (membersRes.data || []).filter(m => m.active);
+      
       setAvailableBooks(activeAvailBooks);
       setMembers(activeMembers);
       
-      if (activeAvailBooks.length > 0 && activeMembers.length > 0) {
-        setFormData({
-          bookId: activeAvailBooks[0].id.toString(),
-          memberId: activeMembers[0].id.toString(),
-          rentalDay: 14
-        });
-      }
+      setFormData(prev => ({
+        ...prev,
+        bookId: activeAvailBooks.length > 0 ? activeAvailBooks[0].id.toString() : '',
+        memberId: activeMembers.length > 0 ? activeMembers[0].id.toString() : (prev.memberId || '1'),
+        rentalDay: 14
+      }));
     } catch (err) {
-      showToast('Kitap ve Üye verileri yüklenemedi.', 'error');
+      showToast('Kitap verileri yüklenemedi.', 'error');
     }
   };
 
@@ -75,8 +84,10 @@ const RentalsPage = ({ showToast }) => {
   }, [activeSubTab]);
 
   useEffect(() => {
-    fetchAvailableBooksAndMembers();
-  }, [modalOpen]);
+    if (modalOpen) {
+      fetchAvailableBooksAndMembers();
+    }
+  }, [modalOpen, isAdmin]);
 
   const handleMemberSearch = async (e) => {
     e.preventDefault();
@@ -110,7 +121,6 @@ const RentalsPage = ({ showToast }) => {
         showToast(res.message || 'Kitap başarıyla teslim alındı.', 'success');
         fetchRentals();
         if (searchMemberId) {
-          // Refresh search result if active
           const searchRes = await rentalService.getRentalsByMember(searchMemberId);
           setMemberRentals(searchRes.data || []);
         }
@@ -321,10 +331,6 @@ const RentalsPage = ({ showToast }) => {
                   <p style={{ color: 'var(--danger)', textAlign: 'center', padding: '1rem' }}>
                     Kiralama yapılabilecek müsait kitap bulunmamaktadır. (Stokta olan aktif kitap yok)
                   </p>
-                ) : members.length === 0 ? (
-                  <p style={{ color: 'var(--danger)', textAlign: 'center', padding: '1rem' }}>
-                    Sistemde aktif kayıtlı üye bulunmamaktadır.
-                  </p>
                 ) : (
                   <>
                     <div className="form-group">
@@ -345,17 +351,29 @@ const RentalsPage = ({ showToast }) => {
 
                     <div className="form-group">
                       <label><User size={14} style={{ marginRight: '4px' }} /> Kirayı Alan Üye*</label>
-                      <select
-                        className={`form-control ${fieldErrors.memberId ? 'is-invalid' : ''}`}
-                        value={formData.memberId}
-                        onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
-                      >
-                        {members.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.firstName} {m.lastName} (ID: {m.id})
-                          </option>
-                        ))}
-                      </select>
+                      {members.length > 0 ? (
+                        <select
+                          className={`form-control ${fieldErrors.memberId ? 'is-invalid' : ''}`}
+                          value={formData.memberId}
+                          onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
+                        >
+                          {members.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.firstName} {m.lastName} (ID: {m.id})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="number"
+                          min="1"
+                          className={`form-control ${fieldErrors.memberId ? 'is-invalid' : ''}`}
+                          placeholder="Üye ID giriniz (Örn: 1)"
+                          value={formData.memberId}
+                          onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
+                          required
+                        />
+                      )}
                       {fieldErrors.memberId && <span className="error-feedback">{fieldErrors.memberId}</span>}
                     </div>
 
@@ -378,7 +396,7 @@ const RentalsPage = ({ showToast }) => {
                 <button 
                   type="submit" 
                   className="btn btn-primary" 
-                  disabled={availableBooks.length === 0 || members.length === 0 || rentingLoading}
+                  disabled={availableBooks.length === 0 || !formData.memberId || rentingLoading}
                 >
                   {rentingLoading ? 'Kiralanıyor...' : 'Kirala'}
                 </button>
