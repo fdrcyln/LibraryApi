@@ -21,11 +21,14 @@ spec:
           env:
             - name: SPRING_DATASOURCE_URL
               value: jdbc:postgresql://postgres:5432/postgres?currentSchema=library
+
             - name: SPRING_DATASOURCE_USERNAME
               value: postgres
+
             - name: SPRING_DATASOURCE_PASSWORD
               value: admin
-	    - name: JWT_SECRET
+
+            - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: library-security
@@ -61,3 +64,4 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
+
