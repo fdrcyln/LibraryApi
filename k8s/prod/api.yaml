@@ -25,6 +25,30 @@ spec:
               value: postgres
             - name: SPRING_DATASOURCE_PASSWORD
               value: admin
+		
+	    - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: library-security
+                  key: JWT_SECRET
+
+            - name: JWT_EXPIRATION
+              valueFrom:
+                secretKeyRef:
+                  name: library-security
+                  key: JWT_EXPIRATION
+
+            - name: ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: library-security
+                  key: ADMIN_EMAIL
+
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: library-security
+                  key: ADMIN_PASSWORD
 
 ---
 apiVersion: v1

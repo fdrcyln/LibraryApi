@@ -1,24 +1,38 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     stages {
+
         stage('Select Environment') {
             steps {
                 script {
                     if (env.BRANCH_NAME == 'develop') {
                         env.TARGET_NAMESPACE = 'library-dev'
+                        env.K8S_DIR = 'dev'
                         env.IMAGE_TAG = "dev-${env.BUILD_NUMBER}"
                         env.API_HOST_PORT = '8082'
+                        env.TEST_DB_PORT = '5433'
+                        env.TEST_DB_CONTAINER = 'library-ci-db-dev'
                     }
                     else if (env.BRANCH_NAME == 'qa') {
                         env.TARGET_NAMESPACE = 'library-qa'
+                        env.K8S_DIR = 'qa'
                         env.IMAGE_TAG = "qa-${env.BUILD_NUMBER}"
                         env.API_HOST_PORT = '8083'
+                        env.TEST_DB_PORT = '5434'
+                        env.TEST_DB_CONTAINER = 'library-ci-db-qa'
                     }
                     else if (env.BRANCH_NAME == 'main') {
                         env.TARGET_NAMESPACE = 'library-prod'
+                        env.K8S_DIR = 'prod'
                         env.IMAGE_TAG = "prod-${env.BUILD_NUMBER}"
                         env.API_HOST_PORT = '8084'
+                        env.TEST_DB_PORT = '5435'
+                        env.TEST_DB_CONTAINER = 'library-ci-db-prod'
                     }
                     else {
                         error("Unsupported branch: ${env.BRANCH_NAME}")
@@ -32,8 +46,204 @@ pipeline {
                 echo "Branch: ${env.BRANCH_NAME}"
                 echo "Namespace: ${env.TARGET_NAMESPACE}"
                 echo "Image Tag: ${env.IMAGE_TAG}"
-                echo "API Port: ${env.API_HOST_PORT}"
+                echo "K8s Directory: ${env.K8S_DIR}"
+                echo "API Host Port: ${env.API_HOST_PORT}"
             }
+        }
+
+        stage('Start Test Database') {
+            steps {
+                sh '''
+                    docker rm -f "$TEST_DB_CONTAINER" 2>/dev/null || true
+
+                    docker run -d \
+                      --name "$TEST_DB_CONTAINER" \
+                      -e POSTGRES_DB=postgres \
+                      -e POSTGRES_USER=postgres \
+                      -e POSTGRES_PASSWORD=admin \
+                      -p "$TEST_DB_PORT":5432 \
+                      postgres:15-alpine
+
+                    until docker logs "$TEST_DB_CONTAINER" 2>&1 \
+                      | grep -q "PostgreSQL init process complete"; do
+                        sleep 1
+                    done
+
+                    until docker exec "$TEST_DB_CONTAINER" \
+                      pg_isready -U postgres; do
+                        sleep 1
+                    done
+
+                    docker exec "$TEST_DB_CONTAINER" \
+                      psql -U postgres -d postgres \
+                      -c "CREATE SCHEMA IF NOT EXISTS library;"
+                '''
+            }
+        }
+
+        stage('Backend Test and Build') {
+            steps {
+                dir('LibApi') {
+                    withEnv([
+                        "SPRING_DATASOURCE_URL=jdbc:postgresql://docker:${env.TEST_DB_PORT}/postgres?currentSchema=library",
+                        'SPRING_DATASOURCE_USERNAME=postgres',
+                        'SPRING_DATASOURCE_PASSWORD=admin'
+                    ]) {
+                        sh './mvnw clean package'
+                    }
+                }
+            }
+        }
+
+        stage('Frontend Build') {
+            steps {
+                dir('library-ui') {
+                    sh '''
+                        docker run --rm \
+                          -v "$(pwd):/app" \
+                          -w /app \
+                          node:22-alpine \
+                          sh -c "npm ci && npm run build"
+                    '''
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                sh '''
+                    docker build \
+                      -t library-api:${IMAGE_TAG} \
+                      ./LibApi
+
+                    docker build \
+                      --build-arg VITE_API_BASE_URL=http://localhost:${API_HOST_PORT} \
+                      -t library-frontend:${IMAGE_TAG} \
+                      ./library-ui
+                '''
+            }
+        }
+
+        stage('Push Docker Images') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        echo "$DOCKER_TOKEN" | docker login \
+                          -u "$DOCKER_USER" \
+                          --password-stdin
+
+                        docker tag \
+                          library-api:${IMAGE_TAG} \
+                          $DOCKER_USER/library-api:${IMAGE_TAG}
+
+                        docker tag \
+                          library-frontend:${IMAGE_TAG} \
+                          $DOCKER_USER/library-frontend:${IMAGE_TAG}
+
+                        docker push \
+                          $DOCKER_USER/library-api:${IMAGE_TAG}
+
+                        docker push \
+                          $DOCKER_USER/library-frontend:${IMAGE_TAG}
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'library-kubeconfig',
+                        variable: 'KUBECONFIG'
+                    )
+                ]) {
+                    sh '''
+                        echo "Deploying ${BRANCH_NAME} to ${TARGET_NAMESPACE}"
+
+                        kubectl create namespace "$TARGET_NAMESPACE" \
+                          --dry-run=client \
+                          -o yaml | kubectl apply -f -
+
+                        kubectl apply \
+                          -f k8s/${K8S_DIR}/postgres.yaml
+
+                        kubectl rollout status \
+                          deployment/postgres \
+                          -n "$TARGET_NAMESPACE" \
+                          --timeout=120s
+
+                        kubectl exec \
+                          -n "$TARGET_NAMESPACE" \
+                          deployment/postgres \
+                          -- psql \
+                          -U postgres \
+                          -d postgres \
+                          -c "CREATE SCHEMA IF NOT EXISTS library;"
+
+                        kubectl apply \
+                          -f k8s/${K8S_DIR}/api.yaml
+
+                        kubectl apply \
+                          -f k8s/${K8S_DIR}/frontend.yaml
+
+                        kubectl set image \
+                          deployment/library-api \
+                          library-api=furkandurceylan/library-api:${IMAGE_TAG} \
+                          -n "$TARGET_NAMESPACE"
+
+                        kubectl set image \
+                          deployment/library-frontend \
+                          library-frontend=furkandurceylan/library-frontend:${IMAGE_TAG} \
+                          -n "$TARGET_NAMESPACE"
+
+                        kubectl rollout status \
+                          deployment/library-api \
+                          -n "$TARGET_NAMESPACE" \
+                          --timeout=180s
+
+                        kubectl rollout status \
+                          deployment/library-frontend \
+                          -n "$TARGET_NAMESPACE" \
+                          --timeout=180s
+
+                        kubectl get pods \
+                          -n "$TARGET_NAMESPACE"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+
+        always {
+            sh '''
+                docker rm -f "$TEST_DB_CONTAINER" 2>/dev/null || true
+            '''
+        }
+
+        failure {
+            emailext(
+                to: 'furkandurceylan@gmail.com',
+                subject: "K8S FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+Kubernetes pipeline failed.
+
+Branch: ${env.BRANCH_NAME}
+Environment: ${env.TARGET_NAMESPACE}
+Build: #${env.BUILD_NUMBER}
+
+Console:
+${env.BUILD_URL}console
+                """
+            )
         }
     }
 }
